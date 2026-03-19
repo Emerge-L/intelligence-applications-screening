@@ -345,11 +345,8 @@ export function BulkUpload() {
     updateApplication(app.id, 'cvFile', file);
 
     // For PDF files — read what we can but warn user
-    if (file.type === 'application/pdf') {
-      toast.info('PDF detected — text extraction is limited. Please paste CV content manually in the text box below or use a TXT/DOC file for best results.');
-      updateApplication(app.id, 'cvText', `[PDF uploaded: ${file.name}]\n\nPlease paste the CV content in this text box manually for accurate AI screening.`);
-      return;
-    }
+    // Show progress for all file types including PDF
+    toast.info(`Processing ${file.name}...`);
 
     updateApplication(app.id, 'extracting', true);
     try {
