@@ -339,31 +339,43 @@ export function BulkUpload() {
                       <input
                         type="file"
                         accept=".pdf,.doc,.docx,.txt"
-                         onChange={async (e) => {
+                        onChange={async (e) => {
   const file = e.target.files?.[0];
-  if (file) {
-    updateApplication(app.id, 'cvFile', file);
+  if (!file) return;
 
-    // For PDF files — read what we can but warn user
-    // Show progress for all file types including PDF
-    toast.info(`Processing ${file.name}...`);
+  // Update file and extracting state in one call to avoid stale state
+  setApplications(prev => prev.map(a =>
+    a.id === app.id
+      ? { ...a, cvFile: file, extracting: true, cvText: '' }
+      : a
+  ));
 
-    updateApplication(app.id, 'extracting', true);
-    try {
-      const result = await api.extractText(file);
-      if (result.extractedText && result.extractedText.length > 50) {
-        updateApplication(app.id, 'cvText', result.extractedText);
-        toast.success(`Text extracted successfully from ${file.name}`);
-      } else {
-        toast.warning('Could not extract enough text. Please paste CV content manually.');
-        updateApplication(app.id, 'cvText', '');
-      }
-    } catch (error) {
-      console.error('Error extracting text:', error);
-      toast.error('Failed to extract text. Please paste CV content manually.');
-    } finally {
-      updateApplication(app.id, 'extracting', false);
+  toast.info(`Processing ${file.name}...`);
+
+  try {
+    const result = await api.extractText(file);
+    const extracted = result.extractedText ?? '';
+
+    if (extracted.length > 50) {
+      // Set cvText directly in state — single atomic update
+      setApplications(prev => prev.map(a =>
+        a.id === app.id
+          ? { ...a, cvText: extracted, extracting: false }
+          : a
+      ));
+      toast.success(`Text extracted from ${file.name}`);
+    } else {
+      setApplications(prev => prev.map(a =>
+        a.id === app.id ? { ...a, extracting: false } : a
+      ));
+      toast.warning('Could not extract enough text. Please paste CV content manually.');
     }
+  } catch (error) {
+    console.error('Error extracting text:', error);
+    setApplications(prev => prev.map(a =>
+      a.id === app.id ? { ...a, extracting: false } : a
+    ));
+    toast.error('Failed to extract text. Please paste CV content manually.');
   }
 }}
                         className="hidden"
