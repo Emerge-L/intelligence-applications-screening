@@ -418,7 +418,7 @@ export function BulkUpload() {
                   </div>
                 </div>
 
-                {/* <textarea
+                <textarea
                   value={app.cvText}
                   onChange={(e) => updateApplication(app.id, 'cvText', e.target.value)}
                   rows={6}
@@ -427,7 +427,7 @@ export function BulkUpload() {
                 />
                 <p className="text-xs text-gray-500 mt-2">
                   💡 Tip: Upload a CV file to automatically extract text, or paste content directly. You can edit the extracted text if needed.
-                </p> */}
+                </p>
               </div>
             </div>
           ))}
