@@ -3,7 +3,7 @@ import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const app = new Hono();
+const app = new Hono().basePath('/server');
 
 // ── Supabase client (uses service role — full DB access) ──
 const supabase = createClient(
@@ -686,4 +686,4 @@ app.get("/vacancies/:vacancyId/analytics", async (c) => {
   });
 });
 
-Deno.serve(app.fetch);
+Deno.serve({ port: 8000 }, app.fetch);
