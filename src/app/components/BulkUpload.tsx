@@ -356,7 +356,7 @@ export function BulkUpload() {
     const result = await api.extractText(file);
     const extracted = result.extractedText ?? '';
 
-    if (extracted.length > 50) {
+if (extracted && extracted.length > 50) {
       // Set cvText directly in state — single atomic update
       setApplications(prev => prev.map(a =>
         a.id === app.id
@@ -375,7 +375,7 @@ export function BulkUpload() {
     setApplications(prev => prev.map(a =>
       a.id === app.id ? { ...a, extracting: false } : a
     ));
-    toast.error('Failed to extract text. Please paste CV content manually.');
+    toast.warning('PDF text extraction failed. Please paste the CV content manually in the text box below.');
   }
 }}
                         className="hidden"

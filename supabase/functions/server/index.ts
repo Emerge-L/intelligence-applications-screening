@@ -434,7 +434,9 @@ app.post("/upload-file", async (c) => {
 });
 
 // Extract text from uploaded file
-app.post("/extract-text", async (c) => {
+
+// Get all active vacancies
+app.get("/vacancies", async (c) => {app.post("/extract-text", async (c) => {
   try {
     const formData = await c.req.formData();
     const file = formData.get("file") as File;
@@ -447,10 +449,21 @@ app.post("/extract-text", async (c) => {
       extractedText = await file.text();
 
     } else if (file.type === "application/pdf" && ANTHROPIC_API_KEY) {
-      // PDF — send to Claude AI as base64 document
+      // PDF — convert to base64 and send to Claude AI
       try {
         const arrayBuffer = await file.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+        const uint8Array = new Uint8Array(arrayBuffer);
+        
+        // Convert to base64 in chunks to avoid memory issues
+        let binary = "";
+        const chunkSize = 8192;
+        for (let i = 0; i < uint8Array.length; i += chunkSize) {
+          const chunk = uint8Array.subarray(i, i + chunkSize);
+          binary += String.fromCharCode(...chunk);
+        }
+        const base64 = btoa(binary);
+
+        console.log(`PDF size: ${uint8Array.length} bytes, base64 length: ${base64.length}`);
 
         const response = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
@@ -462,34 +475,42 @@ app.post("/extract-text", async (c) => {
           body: JSON.stringify({
             model: "claude-haiku-4-5-20251001",
             max_tokens: 2048,
-            messages: [{
-              role: "user",
-              content: [
-                {
-                  type: "document",
-                  source: {
-                    type: "base64",
-                    media_type: "application/pdf",
-                    data: base64,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "document",
+                    source: {
+                      type: "base64",
+                      media_type: "application/pdf",
+                      data: base64,
+                    },
                   },
-                },
-                {
-                  type: "text",
-                  text: "Extract all text content from this CV/resume document. Return only the raw text content, preserving structure like sections, dates, and bullet points. Do not summarize or add commentary.",
-                },
-              ],
-            }],
+                  {
+                    type: "text",
+                    text: "Extract all text from this CV/resume. Return only the raw text content preserving sections, dates, job titles, education, and skills. Do not summarize or add any commentary.",
+                  },
+                ],
+              },
+            ],
           }),
         });
+
+        console.log(`Anthropic response status: ${response.status}`);
 
         if (response.ok) {
           const data = await response.json();
           extractedText = data.content?.[0]?.text ?? "";
+          console.log(`Extracted ${extractedText.length} characters from PDF`);
         } else {
-          extractedText = `PDF uploaded: ${file.name}\n\nCould not extract text automatically. Please paste CV content manually.`;
+          const errData = await response.json().catch(() => ({}));
+          console.log("Anthropic API error:", JSON.stringify(errData));
+          extractedText = "";
         }
-      } catch {
-        extractedText = `PDF uploaded: ${file.name}\n\nCould not extract text automatically. Please paste CV content manually.`;
+      } catch (pdfError) {
+        console.log("PDF extraction error:", pdfError);
+        extractedText = "";
       }
 
     } else if (
@@ -497,23 +518,41 @@ app.post("/extract-text", async (c) => {
       file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     ) {
       // DOC/DOCX — attempt plain text read
-      extractedText = await file
-        .text()
-        .catch(() => `File: ${file.name}\nPlease paste CV content manually.`);
+      try {
+        extractedText = await file.text();
+      } catch {
+        extractedText = "";
+      }
 
     } else {
-      extractedText = await file
-        .text()
-        .catch(() => `File: ${file.name}\nPlease paste CV content manually.`);
+      try {
+        extractedText = await file.text();
+      } catch {
+        extractedText = "";
+      }
     }
 
-    return c.json({ extractedText, fileName: file.name, fileType: file.type });
+    // If extraction produced nothing useful, return empty so frontend knows to show manual input
+    if (!extractedText || extractedText.trim().length < 30) {
+      return c.json({
+        extractedText: "",
+        fileName: file.name,
+        fileType: file.type,
+        message: "Could not extract text automatically"
+      });
+    }
+
+    return c.json({
+      extractedText,
+      fileName: file.name,
+      fileType: file.type
+    });
+
   } catch (e) {
+    console.log("Extract text error:", e);
     return c.json({ error: "Failed to extract text", details: String(e) }, 500);
   }
 });
-// Get all active vacancies
-app.get("/vacancies", async (c) => {
   const { data, error } = await supabase
     .from("vacancies")
     .select("*")
