@@ -8,11 +8,21 @@ interface Vacancy {
   id: string;
   title: string;
   organization: string;
-  knockoutCriteria: Array<{
+  knockout_criteria?: Array<{
     question: string;
     type: string;
     required: boolean;
   }>;
+  knockoutCriteria?: Array<{
+    question: string;
+    type: string;
+    required: boolean;
+  }>;
+}
+
+// Helper to get knockout criteria from either naming convention
+function getKnockout(v: Vacancy) {
+  return v.knockout_criteria ?? v.knockoutCriteria ?? [];
 }
 
 interface ApplicationForm {
@@ -72,7 +82,7 @@ export function BulkUpload() {
       fullName: '',
       email: '',
       phone: '',
-      knockoutAnswers: new Array(selectedVacancy.knockoutCriteria.length).fill(''),
+      knockoutAnswers: new Array(getKnockout(selectedVacancy).length).fill(''),
       cvText: '',
       cvFile: null,
       letterFile: null,
@@ -214,7 +224,7 @@ export function BulkUpload() {
                 <strong>Selected:</strong> {selectedVacancy.title}
               </p>
               <p className="text-xs text-blue-700 mt-1">
-                Applications will be screened against {selectedVacancy.knockoutCriteria.length} knockout questions
+                Applications will be screened against {getKnockout(selectedVacancy).length} knockout questions
               </p>
             </div>
           )}
@@ -281,7 +291,7 @@ export function BulkUpload() {
               <div className="mb-4 border-t border-gray-200 pt-4">
                 <h4 className="font-semibold text-gray-900 mb-3">Screening Questions</h4>
                 <div className="space-y-3">
-                  {selectedVacancy.knockoutCriteria.map((criterion, qIndex) => (
+                  {getKnockout(selectedVacancy).map((criterion, qIndex) => (
                     <div key={qIndex} className="bg-gray-50 rounded-lg p-3">
                       <p className="text-sm font-medium text-gray-700 mb-2">
                         {qIndex + 1}. {criterion.question}
