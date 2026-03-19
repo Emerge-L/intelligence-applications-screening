@@ -441,10 +441,66 @@ app.post("/extract-text", async (c) => {
     if (!file) return c.json({ error: "No file provided" }, 400);
 
     let extractedText = "";
+
     if (file.type === "text/plain") {
+      // Plain text — read directly
       extractedText = await file.text();
-    } else if (file.type === "application/pdf") {
-      extractedText = `PDF uploaded: ${file.name}\n\nPlease paste the CV content manually for accurate AI parsing.`;
+
+    } else if (file.type === "application/pdf" && ANTHROPIC_API_KEY) {
+      // PDF — send to Claude AI as base64 document
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 2048,
+            messages: [{
+              role: "user",
+              content: [
+                {
+                  type: "document",
+                  source: {
+                    type: "base64",
+                    media_type: "application/pdf",
+                    data: base64,
+                  },
+                },
+                {
+                  type: "text",
+                  text: "Extract all text content from this CV/resume document. Return only the raw text content, preserving structure like sections, dates, and bullet points. Do not summarize or add commentary.",
+                },
+              ],
+            }],
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          extractedText = data.content?.[0]?.text ?? "";
+        } else {
+          extractedText = `PDF uploaded: ${file.name}\n\nCould not extract text automatically. Please paste CV content manually.`;
+        }
+      } catch {
+        extractedText = `PDF uploaded: ${file.name}\n\nCould not extract text automatically. Please paste CV content manually.`;
+      }
+
+    } else if (
+      file.type === "application/msword" ||
+      file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ) {
+      // DOC/DOCX — attempt plain text read
+      extractedText = await file
+        .text()
+        .catch(() => `File: ${file.name}\nPlease paste CV content manually.`);
+
     } else {
       extractedText = await file
         .text()
@@ -456,7 +512,6 @@ app.post("/extract-text", async (c) => {
     return c.json({ error: "Failed to extract text", details: String(e) }, 500);
   }
 });
-
 // Get all active vacancies
 app.get("/vacancies", async (c) => {
   const { data, error } = await supabase

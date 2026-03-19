@@ -339,23 +339,36 @@ export function BulkUpload() {
                       <input
                         type="file"
                         accept=".pdf,.doc,.docx,.txt"
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            updateApplication(app.id, 'cvFile', file);
-                            updateApplication(app.id, 'extracting', true);
-                            try {
-                              const result = await api.extractText(file);
-                              updateApplication(app.id, 'cvText', result.extractedText);
-                              toast.success('CV file uploaded and text extracted');
-                            } catch (error) {
-                              console.error('Error extracting text:', error);
-                              toast.error('Failed to extract text from file');
-                            } finally {
-                              updateApplication(app.id, 'extracting', false);
-                            }
-                          }
-                        }}
+                         onChange={async (e) => {
+  const file = e.target.files?.[0];
+  if (file) {
+    updateApplication(app.id, 'cvFile', file);
+
+    // For PDF files — read what we can but warn user
+    if (file.type === 'application/pdf') {
+      toast.info('PDF detected — text extraction is limited. Please paste CV content manually in the text box below or use a TXT/DOC file for best results.');
+      updateApplication(app.id, 'cvText', `[PDF uploaded: ${file.name}]\n\nPlease paste the CV content in this text box manually for accurate AI screening.`);
+      return;
+    }
+
+    updateApplication(app.id, 'extracting', true);
+    try {
+      const result = await api.extractText(file);
+      if (result.extractedText && result.extractedText.length > 50) {
+        updateApplication(app.id, 'cvText', result.extractedText);
+        toast.success(`Text extracted successfully from ${file.name}`);
+      } else {
+        toast.warning('Could not extract enough text. Please paste CV content manually.');
+        updateApplication(app.id, 'cvText', '');
+      }
+    } catch (error) {
+      console.error('Error extracting text:', error);
+      toast.error('Failed to extract text. Please paste CV content manually.');
+    } finally {
+      updateApplication(app.id, 'extracting', false);
+    }
+  }
+}}
                         className="hidden"
                       />
                       <div className="text-center">
