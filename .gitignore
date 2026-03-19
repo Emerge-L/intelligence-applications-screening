@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Environment variables - NEVER commit these
+.env
+.env.local
+.env.development
+.env.production
+
+# Supabase local config (contains secrets)
+supabase/.temp/
+supabase/functions/.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# VS Code
+.vscode/
+
+# Supabase CLI binary (you downloaded this manually)
+supabase.exe
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Vite cache
+.vite/
+```
+
+---
+
+## STEP 2 — Check `utils/supabase/info.tsx` — your keys are exposed
+
+Open this file:
+```
+C:\Stack_System_Developments\utils\supabase\info.tsx
